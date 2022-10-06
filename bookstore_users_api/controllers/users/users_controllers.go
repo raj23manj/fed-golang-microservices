@@ -7,6 +7,7 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/raj23manj/fed-golang-microservices/bookstore_users_api/domain/users"
 	"github.com/raj23manj/fed-golang-microservices/bookstore_users_api/services"
+	"github.com/raj23manj/fed-golang-microservices/bookstore_users_api/utils/errors"
 )
 
 func CreateUser(c *gin.Context) {
@@ -40,13 +41,15 @@ func CreateUser(c *gin.Context) {
 
 	// method 2
 	if err := c.ShouldBindJSON(&user); err != nil {
+		restErr := errors.NewBadRequestError("invalid json body")
 		fmt.Println(err.Error())
+		c.JSON(restErr.Status, restErr)
 		return
 	}
 
 	result, saveErr := services.CreateUser(user)
 	if saveErr != nil {
-		// TODO: handle error
+		c.JSON(saveErr.Status, saveErr)
 		return
 	}
 
