@@ -16,10 +16,12 @@ var (
 )
 
 const (
-	queryInsertUser = ("INSERT INTO users(first_name, last_name, email, date_created) VALUES(?,?,?,?);")
+	queryInsertUser  = "INSERT INTO users(first_name, last_name, email, date_created) VALUES(?,?,?,?);"
+	indexUniqueEmail = "email_unique"
+	queryGetter      = "SELECT * FROM users WHERE id = ?;"
 )
 
-// not passing a  pointer, but passing a copy of the value from the callee
+// not passing a pointer, but passing a copy of the value from the callee
 // how to structure our domain, 21:25
 // func (user User) Get() *errors.RestErr {
 // here we are passing pointer to the user object, and what changed here will affect in the caller function
@@ -29,15 +31,39 @@ func (user *User) Get() *errors.RestErr {
 		panic(err)
 	}
 
-	result := usersDB[user.Id]
-	if result == nil {
-		return errors.NewNotFoundError(fmt.Sprintf("User %d not found", user.Id))
+	stmt, err := users_db.Client.Prepare(queryGetter)
+	if err != nil {
+		return errors.NewInternalServerError(err.Error())
 	}
-	user.Id = result.Id
-	user.FirstName = result.FirstName
-	user.LastName = result.LastName
-	user.Email = result.Email
-	user.DateCreated = result.DateCreated
+
+	defer stmt.Close()
+
+	// using Query => https://github.com/golang/go/wiki/SQLInterface
+	// results, err := stmt.Query(user.Id)
+	// if err != nil {
+	// return errors.NewInternalServerError(err.Error())
+	// }
+	// defer results.Close()
+
+	result := stmt.QueryRow(user.Id)
+	// scan populates the attributes matched from the query and adds them to user object
+	if err := result.Scan(&user.Id, &user.FirstName, &user.LastName, &user.Email, &user.DateCreated); err != nil {
+		fmt.Println(err)
+		if strings.Contains(err.Error(), "no rows in result set") {
+			return errors.NewNotFoundError(fmt.Sprintf("User %d not found", user.Id))
+		}
+		return errors.NewInternalServerError(fmt.Sprintf("error while trying to get user %d : %s", user.Id, err.Error()))
+	}
+
+	// result := usersDB[user.Id]
+	// if result == nil {
+	// 	return errors.NewNotFoundError(fmt.Sprintf("User %d not found", user.Id))
+	// }
+	// user.Id = result.Id
+	// user.FirstName = result.FirstName
+	// user.LastName = result.LastName
+	// user.Email = result.Email
+	// user.DateCreated = result.DateCreated
 	return nil
 }
 
@@ -56,7 +82,7 @@ func (user *User) Save() *errors.RestErr {
 	insertResult, err := stmt.Exec(user.FirstName, user.LastName, user.Email, user.DateCreated)
 	if err != nil {
 		// Error 1062 (23000): Duplicate entry 'example@demo.com' for key 'users.email_unique'"
-		if strings.Contains(err.Error(), "email_unique") {
+		if strings.Contains(err.Error(), indexUniqueEmail) {
 			return errors.NewBadRequestError(fmt.Sprintf("email %s already exists", user.Email))
 		}
 		return errors.NewInternalServerError(fmt.Sprintf("error when trying to save user: %s", err.Error()))
