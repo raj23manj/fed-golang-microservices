@@ -3,7 +3,9 @@ package users
 import (
 	"fmt"
 
-	utils "github.com/raj23manj/fed-golang-microservices/bookstore_users_api/utils/date"
+	"github.com/raj23manj/fed-golang-microservices/bookstore_users_api/datasources/mysql/users_db"
+	// utils "github.com/raj23manj/fed-golang-microservices/bookstore_users_api/utils/date"
+	"github.com/raj23manj/fed-golang-microservices/bookstore_users_api/utils/date"
 	"github.com/raj23manj/fed-golang-microservices/bookstore_users_api/utils/errors"
 )
 
@@ -16,6 +18,11 @@ var (
 // func (user User) Get() *errors.RestErr {
 // here we are passing pointer to the user object, and what changed here will affect in the caller function
 func (user *User) Get() *errors.RestErr {
+
+	if err := users_db.Client.Ping(); err != nil {
+		panic(err)
+	}
+
 	result := usersDB[user.Id]
 	if result == nil {
 		return errors.NewNotFoundError(fmt.Sprintf("User %d not found", user.Id))
@@ -38,6 +45,6 @@ func (user *User) Save() *errors.RestErr {
 	}
 
 	usersDB[user.Id] = user
-	user.DateCreated = utils.GetNowString()
+	user.DateCreated = date.GetNowString()
 	return nil
 }
