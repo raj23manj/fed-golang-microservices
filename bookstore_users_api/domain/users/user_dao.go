@@ -18,6 +18,7 @@ const (
 	queryInsertUser  = "INSERT INTO users(first_name, last_name, email, date_created) VALUES(?,?,?,?);"
 	indexUniqueEmail = "email_unique"
 	queryGetter      = "SELECT * FROM users WHERE id = ?;"
+	queryUpdateUser  = "UPDATE users SET first_name=?, last_name=?, email=? WHERE id = ? ;"
 )
 
 // not passing a pointer, but passing a copy of the value from the callee
@@ -140,5 +141,20 @@ func (user *User) Save() *errors.RestErr {
 
 	// usersDB[user.Id] = user
 	// user.DateCreated = date.GetNowString()
+	return nil
+}
+
+func (user *User) Update() *errors.RestErr {
+	stmt, err := users_db.Client.Prepare(queryUpdateUser)
+	if err != nil {
+		return errors.NewInternalServerError(err.Error())
+	}
+	defer stmt.Close()
+
+	// here we dont care about the result but check for the error, 14:51 how to update rows
+	_, err = stmt.Exec(user.FirstName, user.LastName, user.Email, user.Id)
+	if err != nil {
+		return mysql_utils.ParseError(err)
+	}
 	return nil
 }
