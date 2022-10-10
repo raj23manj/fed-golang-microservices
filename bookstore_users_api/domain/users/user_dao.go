@@ -1,14 +1,13 @@
 package users
 
 import (
-	"fmt"
-	"strings"
-
 	"github.com/raj23manj/fed-golang-microservices/bookstore_users_api/datasources/mysql/users_db"
+
 	// utils "github.com/raj23manj/fed-golang-microservices/bookstore_users_api/utils/date"
 
 	"github.com/raj23manj/fed-golang-microservices/bookstore_users_api/utils/date"
 	"github.com/raj23manj/fed-golang-microservices/bookstore_users_api/utils/errors"
+	"github.com/raj23manj/fed-golang-microservices/bookstore_users_api/utils/mysql_utils"
 )
 
 var (
@@ -48,11 +47,14 @@ func (user *User) Get() *errors.RestErr {
 	result := stmt.QueryRow(user.Id)
 	// scan populates the attributes matched from the query and adds them to user object
 	if err := result.Scan(&user.Id, &user.FirstName, &user.LastName, &user.Email, &user.DateCreated); err != nil {
-		fmt.Println(err)
-		if strings.Contains(err.Error(), "no rows in result set") {
-			return errors.NewNotFoundError(fmt.Sprintf("User %d not found", user.Id))
-		}
-		return errors.NewInternalServerError(fmt.Sprintf("error while trying to get user %d : %s", user.Id, err.Error()))
+		// fmt.Println(err)
+		// // in this case we do not check for errors like we did for save, here we check for string, 20:10 how to handle sql errors
+		// if strings.Contains(err.Error(), "no rows in result set") {
+		// 	return errors.NewNotFoundError(fmt.Sprintf("User %d not found", user.Id))
+		// }
+		// return errors.NewInternalServerError(fmt.Sprintf("error while trying to get user %d : %s", user.Id, err.Error()))
+
+		return mysql_utils.ParseError(err)
 	}
 
 	// result := usersDB[user.Id]
@@ -81,16 +83,46 @@ func (user *User) Save() *errors.RestErr {
 	user.DateCreated = date.GetNowString()
 	insertResult, err := stmt.Exec(user.FirstName, user.LastName, user.Email, user.DateCreated)
 	if err != nil {
-		// Error 1062 (23000): Duplicate entry 'example@demo.com' for key 'users.email_unique'"
-		if strings.Contains(err.Error(), indexUniqueEmail) {
-			return errors.NewBadRequestError(fmt.Sprintf("email %s already exists", user.Email))
-		}
-		return errors.NewInternalServerError(fmt.Sprintf("error when trying to save user: %s", err.Error()))
+		// // identifying errors
+		// // http://go-database-sql.org/errors.html
+
+		// // to check if it is a mysql error, 3:48 how to handle sql errors
+		// // convert err to *mysql.MySQLError
+		// // if err is a type of *mysql.MySQLError then ok will be true
+		// sqlErr, ok := err.(*mysql.MySQLError)
+		// // check if the error is not a type of mysql error, 5:40 how to handle sql errors
+		// if !ok {
+		// 	return errors.NewInternalServerError(fmt.Sprintf("error when trying to save user: %s", err.Error()))
+		// }
+		// fmt.Println("################################################################")
+		// fmt.Println(sqlErr)
+		// fmt.Println(sqlErr.Number)
+		// fmt.Println(sqlErr.Message)
+		// /*
+		// 	  14:21 how to handle sql errors
+		// 		we can use switch case to pin point to specific errors
+		// 		switch sqlErr.Number {
+		// 		case 1062:
+		// 			return  errors.NewInternalServerError(fmt.Sprintf("email %s already exisits", err.Error()))
+		// 		}
+		// */
+		// return errors.NewInternalServerError(fmt.Sprintf("error when trying to save user: %s", err.Error()))
+
+		// // other way of doing using the message as regex
+		// // // Error 1062 (23000): Duplicate entry 'example@demo.com' for key 'users.email_unique'"
+		// // if strings.Contains(err.Error(), indexUniqueEmail) {
+		// // 	return errors.NewBadRequestError(fmt.Sprintf("email %s already exists", user.Email))
+		// // }
+		// // return errors.NewInternalServerError(fmt.Sprintf("error when trying to save user: %s", err.Error()))
+
+		// use util method
+		return mysql_utils.ParseError(err)
 	}
 
 	userId, err := insertResult.LastInsertId()
 	if err != nil {
-		return errors.NewInternalServerError(fmt.Sprintf("error when trying to save user: %s", err.Error()))
+		return mysql_utils.ParseError(err)
+		// return errors.NewInternalServerError(fmt.Sprintf("error when trying to save user: %s", err.Error()))
 	}
 
 	// instead of uing above statements use below
