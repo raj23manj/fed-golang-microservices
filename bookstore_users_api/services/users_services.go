@@ -2,6 +2,7 @@ package services
 
 import (
 	"github.com/raj23manj/fed-golang-microservices/bookstore_users_api/domain/users"
+	"github.com/raj23manj/fed-golang-microservices/bookstore_users_api/utils/date"
 	"github.com/raj23manj/fed-golang-microservices/bookstore_users_api/utils/errors"
 )
 
@@ -18,6 +19,8 @@ func CreateUser(user users.User) (*users.User, *errors.RestErr) {
 		return nil, err
 	}
 
+	user.DateCreated = date.GetNowDBFormat()
+	user.Status = users.StatusActive
 	if err := user.Save(); err != nil {
 		return nil, err
 	}
@@ -68,4 +71,9 @@ func DeleteUser(userId int64) *errors.RestErr {
 	}
 
 	return current.Delete()
+}
+
+func Search(status string) ([]users.User, *errors.RestErr) {
+	dao := &users.User{}
+	return dao.FindByStatus(status)
 }

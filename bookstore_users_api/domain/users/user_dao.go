@@ -5,7 +5,6 @@ import (
 
 	// utils "github.com/raj23manj/fed-golang-microservices/bookstore_users_api/utils/date"
 
-	"github.com/raj23manj/fed-golang-microservices/bookstore_users_api/utils/date"
 	"github.com/raj23manj/fed-golang-microservices/bookstore_users_api/utils/errors"
 	"github.com/raj23manj/fed-golang-microservices/bookstore_users_api/utils/mysql_utils"
 )
@@ -15,11 +14,12 @@ var (
 )
 
 const (
-	queryInsertUser  = "INSERT INTO users(first_name, last_name, email, date_created) VALUES(?,?,?,?);"
-	indexUniqueEmail = "email_unique"
-	queryGetter      = "SELECT * FROM users WHERE id = ?;"
-	queryUpdateUser  = "UPDATE users SET first_name=?, last_name=?, email=? WHERE id = ? ;"
-	queryDeleteUser  = "DELETE FROM users WHERE id = ? ;"
+	queryInsertUser       = "INSERT INTO users(first_name, last_name, email, date_created, status, password) VALUES(?,?,?,?,?,?) ;"
+	indexUniqueEmail      = "email_unique"
+	queryGetter           = "SELECT id, first_name, last_name, email, date_created, status, password FROM users WHERE id = ? ;"
+	queryUpdateUser       = "UPDATE users SET first_name=?, last_name=?, email=? WHERE id = ? ;"
+	queryDeleteUser       = "DELETE FROM users WHERE id = ? ;"
+	queryFindUserByStatus = "SELECT first_name, last_name, email, date_created, status, id FROM users WHERE status = ? ;"
 )
 
 // not passing a pointer, but passing a copy of the value from the callee
@@ -48,7 +48,7 @@ func (user *User) Get() *errors.RestErr {
 
 	result := stmt.QueryRow(user.Id)
 	// scan populates the attributes matched from the query and adds them to user object
-	if err := result.Scan(&user.Id, &user.FirstName, &user.LastName, &user.Email, &user.DateCreated); err != nil {
+	if err := result.Scan(&user.Id, &user.FirstName, &user.LastName, &user.Email, &user.DateCreated, &user.Status, &user.Password); err != nil {
 		// fmt.Println(err)
 		// // in this case we do not check for errors like we did for save, here we check for string, 20:10 how to handle sql errors
 		// if strings.Contains(err.Error(), "no rows in result set") {
@@ -82,8 +82,8 @@ func (user *User) Save() *errors.RestErr {
 	}
 
 	defer stmt.Close()
-	user.DateCreated = date.GetNowString()
-	insertResult, err := stmt.Exec(user.FirstName, user.LastName, user.Email, user.DateCreated)
+	// user.DateCreated = date.GetNowString()
+	insertResult, err := stmt.Exec(user.FirstName, user.LastName, user.Email, user.DateCreated, user.Status, user.Password)
 	if err != nil {
 		// // identifying errors
 		// // http://go-database-sql.org/errors.html
@@ -172,4 +172,40 @@ func (user *User) Delete() *errors.RestErr {
 		return mysql_utils.ParseError(err)
 	}
 	return nil
+}
+
+func (user *User) FindByStatus(status string) ([]User, *errors.RestErr) {
+	stmt, err := users_db.Client.Prepare(queryFindUserByStatus)
+	if err != nil {
+		return nil, errors.NewInternalServerError(err.Error())
+	}
+	defer stmt.Close()
+
+	rows, err := stmt.Query(status)
+	if err != nil {
+		return nil, mysql_utils.ParseError(err)
+	}
+	// 9:10, how to find rows
+	// this defer statement is put after error, because if error occurs then rows will be nil and cause nil panic during runtime, so can't put immediately
+	// after like this
+	// rows, err := stmt.Query(status)
+	// defer rows.Close()
+	defer rows.Close()
+
+	results := make([]User, 0)
+	for rows.Next() {
+		var user User
+		// passing user.FirstName, user.LastName, here and reaching append code the user will be nil since we are passing a copy of user
+		// hence pass &user.FirstName, &user.LastName ...
+		if err := rows.Scan(&user.FirstName, &user.LastName, &user.Email, &user.DateCreated, &user.Status, &user.Id); err != nil {
+			return nil, mysql_utils.ParseError(err)
+		}
+		results = append(results, user)
+	}
+
+	if len(results) == 0 {
+		return nil, errors.NewNotFoundError("Users not found with matching status")
+	}
+
+	return results, nil
 }
