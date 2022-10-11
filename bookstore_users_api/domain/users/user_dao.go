@@ -19,6 +19,7 @@ const (
 	indexUniqueEmail = "email_unique"
 	queryGetter      = "SELECT * FROM users WHERE id = ?;"
 	queryUpdateUser  = "UPDATE users SET first_name=?, last_name=?, email=? WHERE id = ? ;"
+	queryDeleteUser  = "DELETE FROM users WHERE id = ? ;"
 )
 
 // not passing a pointer, but passing a copy of the value from the callee
@@ -153,6 +154,20 @@ func (user *User) Update() *errors.RestErr {
 
 	// here we dont care about the result but check for the error, 14:51 how to update rows
 	_, err = stmt.Exec(user.FirstName, user.LastName, user.Email, user.Id)
+	if err != nil {
+		return mysql_utils.ParseError(err)
+	}
+	return nil
+}
+
+func (user *User) Delete() *errors.RestErr {
+	stmt, err := users_db.Client.Prepare(queryDeleteUser)
+	if err != nil {
+		return errors.NewInternalServerError(err.Error())
+	}
+	defer stmt.Close()
+
+	_, err = stmt.Exec(user.Id)
 	if err != nil {
 		return mysql_utils.ParseError(err)
 	}
