@@ -54,7 +54,7 @@ func Create(c *gin.Context) {
 		return
 	}
 
-	c.JSON(http.StatusCreated, result)
+	c.JSON(http.StatusCreated, result.Marshall(c.GetHeader("X-Public") == "true"))
 }
 
 func Get(c *gin.Context) {
@@ -70,7 +70,7 @@ func Get(c *gin.Context) {
 		return
 	}
 
-	c.JSON(http.StatusOK, user)
+	c.JSON(http.StatusOK, user.Marshall(c.GetHeader("X-Public") == "true"))
 
 	// c.String(http.StatusNotImplemented, "implement me")
 }
@@ -104,7 +104,7 @@ func Update(c *gin.Context) {
 		c.JSON(err.Status, err)
 		return
 	}
-	c.JSON(http.StatusOK, result)
+	c.JSON(http.StatusOK, result.Marshall(c.GetHeader("X-Public") == "true"))
 }
 
 func Delete(c *gin.Context) {
@@ -130,7 +130,16 @@ func Search(c *gin.Context) {
 		return
 	}
 
-	c.JSON(http.StatusOK, users)
+	// // method 1
+	// // this approach is ok when the end point is mapped to only one function,
+	// // but this same method is mapped to multiple api end points, it will be a problem
+	// // 24:00, How to marshall structs
+	// result := make([]interface{}, len(users))
+	// for index, user := range users {
+	// 	result[index] = user.Marshall(c.GetHeader("X-Public") == "true")
+	// }
+
+	c.JSON(http.StatusOK, users.Marshall(c.GetHeader("X-Public") == "true"))
 }
 
 // shared methods

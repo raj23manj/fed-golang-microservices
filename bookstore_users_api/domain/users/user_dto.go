@@ -21,6 +21,10 @@ type User struct {
 	// Password    string `json:"-"` // 1:20, how to find rows. Do not populate this field with password attributes from json, and when displaying a user donot place a attribute called password
 }
 
+// method 2 for using same method for multiple endpoints,
+// 25:10, How to marshall structs
+type Users []User
+
 func (user *User) Validate() *errors.RestErr {
 	user.FirstName = strings.TrimSpace(strings.ToLower(user.FirstName))
 	user.LastName = strings.TrimSpace(strings.ToLower(user.LastName))
