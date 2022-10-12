@@ -7,7 +7,32 @@ import (
 	"github.com/raj23manj/fed-golang-microservices/bookstore_users_api/utils/errors"
 )
 
-func GetUser(userId int64) (*users.User, *errors.RestErr) {
+// how to write a  service
+// 23:00, Service Structure
+// first write a interface
+// write a empty struct
+// define methods implementing the interface
+// expose a vaiable to outside services `UserService userServiceInterface = &userService{}`
+
+// grouping of services and help in testing, Service Structure 7:54
+// structurin for mocking 18:50, Service Structure
+var (
+	// UserService userService = userService{}
+	UserService userServiceInterface = &userService{}
+)
+
+type userService struct{}
+
+// 15:40, service structure for mocking and structuring
+type userServiceInterface interface {
+	GetUser(int64) (*users.User, *errors.RestErr)
+	CreateUser(users.User) (*users.User, *errors.RestErr)
+	UpdateUser(bool, users.User) (*users.User, *errors.RestErr)
+	DeleteUser(int64) *errors.RestErr
+	SearchUser(string) (users.Users, *errors.RestErr)
+}
+
+func (s *userService) GetUser(userId int64) (*users.User, *errors.RestErr) {
 	result := &users.User{Id: userId}
 	if err := result.Get(); err != nil {
 		return nil, err
@@ -15,7 +40,7 @@ func GetUser(userId int64) (*users.User, *errors.RestErr) {
 	return result, nil
 }
 
-func CreateUser(user users.User) (*users.User, *errors.RestErr) {
+func (s *userService) CreateUser(user users.User) (*users.User, *errors.RestErr) {
 	if err := user.Validate(); err != nil {
 		return nil, err
 	}
@@ -31,8 +56,8 @@ func CreateUser(user users.User) (*users.User, *errors.RestErr) {
 	return &user, nil
 }
 
-func UpdateUser(isPartial bool, user users.User) (*users.User, *errors.RestErr) {
-	current, err := GetUser(user.Id)
+func (s *userService) UpdateUser(isPartial bool, user users.User) (*users.User, *errors.RestErr) {
+	current, err := s.GetUser(user.Id)
 	if err != nil {
 		return nil, err
 	}
@@ -66,9 +91,9 @@ func UpdateUser(isPartial bool, user users.User) (*users.User, *errors.RestErr) 
 	return current, nil
 }
 
-func DeleteUser(userId int64) *errors.RestErr {
+func (s *userService) DeleteUser(userId int64) *errors.RestErr {
 	user := &users.User{Id: userId}
-	current, err := GetUser(user.Id)
+	current, err := s.GetUser(user.Id)
 	if err != nil {
 		return err
 	}
@@ -78,7 +103,7 @@ func DeleteUser(userId int64) *errors.RestErr {
 
 // []users.User  ~= users.Users see in the dto
 // 27:00, How to marshall structs
-func Search(status string) (users.Users, *errors.RestErr) {
+func (s *userService) SearchUser(status string) (users.Users, *errors.RestErr) {
 	dao := &users.User{}
 	return dao.FindByStatus(status)
 }
